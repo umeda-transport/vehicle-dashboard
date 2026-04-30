@@ -184,6 +184,183 @@ function getVehicles(branch,types){const branches=branch==='ALL'?allBranches():[
 function getAllTypes(){const types=new Set();for(const b of allBranches())for(const v of DB[b].vehicles)types.add(v.type);return Array.from(types).sort();}
 function setText(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
 function setBar(id,p,color){const el=document.getElementById(id);if(el){el.style.width=Math.min(p||0,100)+'%';if(color)el.style.background=color;}}
+function buildChartsHtml(db, branches, currentBranch, currentTypes) {
+  let html = '';
+  
+  // データ集計
+  const branchList = currentBranch === 'ALL' ? branches : [currentBranch];
+  let maxAmt = 1;
+  const bStats = {};
+  
+  for (const b of branchList) {
+    if (!db[b]) continue;
+    let bA=0,pA=0,aA=0,bD=0,pD=0,aD=0;
+    for (const v of db[b].vehicles) {
+      if(!currentTypes.has('ALL')&&!currentTypes.has(v.type)) continue;
+      for (const d of v.daily) {
+        if (d.b!==null){bD++;bA+=d.b;}
+        if (d.p!==null){pD++;pA+=d.p;}
+        if (d.a!==null){aD++;aA+=d.a;}
+      }
+    }
+    bStats[b]={bA,pA,aA,bD,pD,aD};
+    maxAmt = Math.max(maxAmt, bA, pA, aA);
+  }
+
+  // グラフ① 棒グラフ
+  let bars = '';
+  for (const b of branchList) {
+    const d = bStats[b] || {bA:0,pA:0,aA:0};
+    const hB = d.bA ? Math.round(d.bA/maxAmt*100) : 0;
+    const hP = d.pA ? Math.round(d.pA/maxAmt*100) : 0;
+    const hA = d.aA ? Math.round(d.aA/maxAmt*100) : 0;
+    const lbl = b.length > 4 ? b.slice(0,4) : b;
+    const bAmtK = d.bA ? Math.round(d.bA/1000).toLocaleString() + '千' : '—';
+    const pAmtK = d.pA ? Math.round(d.pA/1000).toLocaleString() + '千' : '—';
+    const aAmtK = d.aA ? Math.round(d.aA/1000).toLocaleString() + '千' : '—';
+    bars += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;">';
+    bars += '<div style="display:flex;align-items:flex-end;gap:1px;height:100px;width:100%;">';
+    bars += '<div style="border-radius:3px 3px 0 0;flex:1;min-width:8px;height:' + hB + '%;background:var(--budget);opacity:.6" title="予算:' + bAmtK + '"></div>';
+    bars += '<div style="border-radius:3px 3px 0 0;flex:1;min-width:8px;height:' + hP + '%;background:var(--plan);opacity:.8" title="予定:' + pAmtK + '"></div>';
+    bars += '<div style="border-radius:3px 3px 0 0;flex:1;min-width:8px;height:' + hA + '%;background:var(--actual)" title="実績:' + aAmtK + '"></div>';
+    bars += '</div>';
+    bars += '<div style="font-size:9px;color:var(--text-dim);text-align:center;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;">' + lbl + '</div>';
+    bars += '</div>';
+  }
+
+  html += '<div class="panel" style="margin-bottom:16px;">';
+  html += '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);">① 月間進捗 棒グラフ（営業所別）</div>';
+  html += '<div style="font-size:11px;color:var(--text-dim);display:flex;gap:12px;margin-bottom:8px;">';
+  html += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--budget);display:inline-block;"></span>予算</span>';
+  html += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--plan);display:inline-block;"></span>予定</span>';
+  html += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--actual);display:inline-block;"></span>実績</span>';
+  html += '</div>';
+  html += '<div style="display:flex;gap:6px;align-items:flex-end;">' + bars + '</div>';
+  html += '</div>';
+
+  // グラフ② 折れ線グラフ（日別累計）
+  const allDates[] = (branchList.length > 0 && db[branchList[0]] ? db[branchList[0]].dates : []);
+  const ptsB = [];
+  const ptsP = [];
+  const ptsA = [];
+  let cumB=0, cumP=0, cumA=0;
+  for (const dt of allDates) {
+    for (const b of branchList) {
+      if (!db[b]) continue;
+      for (const v of db[b].vehicles) {
+        const day = v.daily.find((x) => x.s === dt.serial);
+        if (day?.b !== null && day?.b !== undefined) cumB += day.b;
+        if (day?.p !== null && day?.p !== undefined) cumP += day.p;
+        if (day?.a !== null && day?.a !== undefined) cumA += day.a;
+      }
+    }
+    ptsB.push(cumB); ptsP.push(cumP); ptsA.push(cumA);
+  }
+  const maxCum = Math.max(cumB, cumP, cumA, 1);
+  const W = 520, H = 80, PAD = 32;
+  const n = allDates.length || 1;
+  const toX = (i) => PAD + (W - PAD) * (i / (n - 1 || 1));
+  const toY = (v) => H - Math.round(v / maxCum * H);
+  const mkPts = (arr) => arr.map((v, i) => toX(i) + ',' + toY(v)).join(' ');
+
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + (H+16) + '" style="width:100%;height:' + (H+16) + 'px;">';
+  svg += '<line x1="' + PAD + '" y1="0" x2="' + PAD + '" y2="' + H + '" stroke="var(--border)" stroke-width="0.5"/>';
+  svg += '<line x1="' + PAD + '" y1="' + H + '" x2="' + W + '" y2="' + H + '" stroke="var(--border)" stroke-width="0.5"/>';
+  svg += '<line x1="' + PAD + '" y1="' + (H/2) + '" x2="' + W + '" y2="' + (H/2) + '" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/>';
+  svg += '<text x="0" y="' + (H+4) + '" font-size="8" fill="var(--text-dim)">0</text>';
+  svg += '<text x="0" y="' + (H/2+4) + '" font-size="8" fill="var(--text-dim)">' + Math.round(maxCum/2000).toLocaleString() + '千</text>';
+  if (ptsB.length > 1) svg += '<polyline points="' + mkPts(ptsB) + '" fill="none" stroke="var(--budget)" stroke-width="1.5" stroke-dasharray="5 2" opacity=".6"/>';
+  if (ptsP.length > 1) svg += '<polyline points="' + mkPts(ptsP) + '" fill="none" stroke="var(--plan)" stroke-width="1.5" stroke-dasharray="3 2" opacity=".8"/>';
+  if (ptsA.length > 1) svg += '<polyline points="' + mkPts(ptsA) + '" fill="none" stroke="var(--actual)" stroke-width="2"/>';
+  if (ptsA.length > 0) {
+    const lastX = toX(ptsA.length-1);
+    const lastY = toY(ptsA[ptsA.length-1]);
+    svg += '<circle cx="' + lastX + '" cy="' + lastY + '" r="3" fill="var(--actual)"/>';
+  }
+  svg += '</svg>';
+  const lastA = ptsA.length > 0 ? (ptsA[ptsA.length-1] || 0) : 0;
+  const lastP = ptsP.length > 0 ? (ptsP[ptsP.length-1] || 0) : 0;
+  const notice = lastA > lastP ? '<div style="font-size:10px;color:var(--plan);margin-top:4px;font-weight:500;">▲ 実績が予定を上回っています</div>' : (lastA > 0 ? '<div style="font-size:10px;color:var(--text-dim);margin-top:4px;">実績は予定の ' + (lastP > 0 ? Math.round(lastA/lastP*100) : 0) + '% です</div>' : '');
+
+  html += '<div class="panel" style="margin-bottom:16px;">';
+  html += '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);">② 日別累計 折れ線グラフ</div>';
+  html += '<div style="font-size:11px;color:var(--text-dim);display:flex;gap:12px;margin-bottom:8px;">';
+  html += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:20px;height:2px;background:var(--budget);opacity:.6;display:inline-block;"></span>予算累計</span>';
+  html += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:20px;height:2px;background:var(--plan);opacity:.8;display:inline-block;"></span>予定累計</span>';
+  html += '<span style="display:flex;align-items:center;gap:4px;"><span style="width:20px;height:2px;background:var(--actual);display:inline-block;"></span>実績累計</span>';
+  html += '</div>';
+  html += svg + notice;
+  html += '</div>';
+
+  // グラフ③ 達成率
+  let prog3 = '';
+  for (const b of branchList) {
+    const d = bStats[b] || {bA:0,pA:0,aA:0};
+    const rb = d.bA > 0 ? Math.round(d.aA/d.bA*100) : null;
+    const rp = d.pA > 0 ? Math.round(d.aA/d.pA*100) : null;
+    const colB = rb === null ? 'var(--text-muted)' : rb >= 100 ? 'var(--plan)' : rb >= 80 ? 'var(--warn)' : 'var(--danger)';
+    const colP = rp === null ? 'var(--text-muted)' : rp >= 100 ? 'var(--plan)' : rp >= 80 ? 'var(--warn)' : 'var(--danger)';
+    const wB = Math.min(rb || 0, 100);
+    const wP = Math.min(rp || 0, 100);
+    const lbl = b.length > 5 ? b.slice(0,5) : b;
+    prog3 += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">';
+    prog3 += '<div style="font-size:11px;color:var(--text);width:58px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + lbl + '</div>';
+    prog3 += '<div style="flex:1;display:flex;flex-direction:column;gap:2px;">';
+    prog3 += '<div style="height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;position:relative;"><div style="height:100%;border-radius:4px;position:absolute;left:0;top:0;width:' + wB + '%;background:var(--budget);opacity:.8;"></div></div>';
+    prog3 += '<div style="height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;position:relative;"><div style="height:100%;border-radius:4px;position:absolute;left:0;top:0;width:' + wP + '%;background:var(--plan);opacity:.9;"></div></div>';
+    prog3 += '</div>';
+    prog3 += '<div style="display:flex;flex-direction:column;gap:2px;width:36px;">';
+    prog3 += '<div style="font-size:10px;font-family:monospace;text-align:right;color:' + colB + ';">' + (rb !== null ? rb + '%' : '—') + '</div>';
+    prog3 += '<div style="font-size:10px;font-family:monospace;text-align:right;color:' + colP + ';">' + (rp !== null ? rp + '%' : '—') + '</div>';
+    prog3 += '</div>';
+    prog3 += '</div>';
+  }
+
+  // グラフ④ ヒートマップ
+  const dayNames = ['日','月','火','水','木','金','土'];
+  let heatHdr = '';
+  for (const d of dayNames) {
+    const col = d === '日' ? 'color:var(--danger)' : d === '土' ? 'color:var(--actual)' : '';
+    heatHdr += '<div style="font-size:8px;color:var(--text-dim);text-align:center;' + col + '">' + d + '</div>';
+  }
+  const firstDate = allDates.length > 0 ? new Date(new Date(1899,11,30).getTime() + allDates[0].serial * 86400000) : new Date();
+  const firstDow = firstDate.getDay();
+  let heatCells = '';
+  for (let i = 0; i < firstDow; i++) heatCells += '<div></div>';
+  for (const dt of allDates) {
+    const dow = new Date(new Date(1899,11,30).getTime() + dt.serial * 86400000).getDay();
+    let pV=0, aV=0;
+    for (const b of branchList) {
+      if (!db[b]) continue;
+      for (const v of db[b].vehicles) {
+        const day = v.daily.find((x) => x.s === dt.serial);
+        if (day?.p !== null && day?.p !== undefined) pV++;
+        if (day?.a !== null && day?.a !== undefined) aV++;
+      }
+    }
+    const isWe = dow === 0 || dow === 6;
+    if (isWe && pV === 0 && aV === 0) {
+      heatCells += '<div style="height:16px;border-radius:2px;background:var(--surface2);"></div>';
+      continue;
+    }
+    const rate = pV > 0 ? Math.round(aV/pV*100) : 0;
+    let bg = '', col = '';
+    if (aV === 0 && pV === 0) { bg='var(--surface2)'; col='var(--text-muted)'; }
+    else if (rate >= 100) { bg='#c8e6c9'; col='#1b5e20'; }
+    else if (rate >= 90)  { bg='#bbdefb'; col='#0d47a1'; }
+    else if (rate >= 80)  { bg='#ffe0b2'; col='#e65100'; }
+    else                  { bg='#ffcdd2'; col='#b71c1c'; }
+    heatCells += '<div style="height:16px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:8px;background:' + bg + ';color:' + col + ';">' + (rate > 0 ? rate + '%' : '—') + '</div>';
+  }
+
+  const chart34 = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">'
+    + '<div class="panel"><div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);">③ 営業所別 達成率</div><div style="font-size:9px;color:var(--text-dim);margin-bottom:6px;display:flex;gap:10px;"><span>■予算比</span><span>■予定比</span></div>' + prog3 + '</div>'
+    + '<div class="panel"><div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);">④ 稼働ヒートマップ（実績/予定）</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px;">' + heatHdr + '</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">' + heatCells + '</div><div style="display:flex;gap:8px;margin-top:6px;align-items:center;"><span style="font-size:9px;color:var(--text-dim);">低</span><div style="height:5px;flex:1;background:linear-gradient(to right,#ffcdd2,#ffe0b2,#bbdefb,#c8e6c9);border-radius:3px;"></div><span style="font-size:9px;color:var(--text-dim);">高</span></div></div>'
+    + '</div>';
+  html += chart34;
+
+  return html;
+}
 function initUI(){
   const dates=getDates('ALL');
   if(!dates.length) return;
@@ -206,7 +383,7 @@ function initUI(){
   const now=new Date();
   setText('updatedBadge','更新日時：'+now.getFullYear()+'/'+(now.getMonth()+1)+'/'+now.getDate()+' '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0'));
   for(const b of allBranches()){const el=document.getElementById('tc-'+b);if(el)el.textContent=DB[b].vehicles.length+'台';}
-  buildDateBar();buildTopTypeFilter();updateKPIs();renderContent();
+  buildDateBar();buildTopTypeFilter();updateKPIs();renderContent();renderChartsArea();
 }
 function getTypesForBranch(branch){
   const branches=branch==='ALL'?allBranches():[branch];
@@ -352,7 +529,7 @@ function updateKPIs(){
     ]),
   ].join('');
 }
-function selectBranch(branch,btn){currentBranch=branch;currentTypes=new Set(['ALL']);document.querySelectorAll('.branch-tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');buildTopTypeFilter();updateKPIs();renderContent();}
+function selectBranch(branch,btn){currentBranch=branch;currentTypes=new Set(['ALL']);document.querySelectorAll('.branch-tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');buildTopTypeFilter();updateKPIs();renderContent();renderChartsArea();}function renderChartsArea(){const branches=allBranches();document.getElementById('chartArea').innerHTML=buildChartsHtml(DB,branches,currentBranch,currentTypes);}
 function renderContent(){if(!DB)return;const area=document.getElementById('contentArea');area.innerHTML='';area.appendChild(renderSummaryPanel());if(currentBranch!=='ALL')area.appendChild(renderCalendarPanel());else area.appendChild(renderAllBranchGauges());}
 function refreshPanels(){updateKPIs();const sp=document.getElementById('summaryPanel');if(sp)sp.replaceWith(renderSummaryPanel());const cp=document.getElementById('calendarPanel');if(cp)cp.replaceWith(renderCalendarPanel());const gp=document.getElementById('gaugePanel');if(gp)gp.replaceWith(renderAllBranchGauges());}
 function renderTypeFilter(){
