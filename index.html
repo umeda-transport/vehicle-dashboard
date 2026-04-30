@@ -239,7 +239,7 @@ function buildChartsHtml(db, branches, currentBranch, currentTypes) {
   html += '</div>';
 
   // グラフ② 折れ線グラフ（日別累計）
-  const allDates[] = (branchList.length > 0 && db[branchList[0]] ? db[branchList[0]].dates : []);
+  const allDates = (branchList.length > 0 && db[branchList[0]] ? db[branchList[0]].dates : []);
   const ptsB = [];
   const ptsP = [];
   const ptsA = [];
