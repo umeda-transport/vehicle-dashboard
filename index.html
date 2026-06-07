@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>車両生産性ダッシュボード｜梅田運輸倉庫</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+  :root{--bg:#f5f7fa;--surface:#ffffff;--surface2:#f0f2f5;--border:#dde1e7;--text:#1a2233;--text-dim:#5a6478;--text-muted:#9aa0ae;--accent:#1a5cbf;--accent-glow:rgba(26,92,191,0.10);--budget:#c85e10;--plan:#1a8a32;--actual:#1a5cbf;--danger:#c62828;--warn:#9a6500;--success:#1a8a32;--mono:'DM Mono',monospace;--sans:'Noto Sans JP',sans-serif;
+  --dept1:#1a5cbf;--dept2:#1a8a32;--dept3:#c85e10;--dept4:#9a35bf;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;line-height:1.5;min-height:100vh;}
+  .header{background:#ffffff;border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 6px rgba(0,0,0,.08);}
+  .header-left{display:flex;align-items:center;gap:16px;}
+  .logo-mark{width:32px;height:32px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;}
+  .header-title{font-size:15px;font-weight:700;}
+  .header-sub{font-size:11px;color:var(--text-dim);margin-top:1px;}
+  .header-right{display:flex;align-items:center;gap:12px;}
+  .period-badge{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;font-family:var(--mono);color:var(--text-dim);}
+  .main{padding:20px 24px;max-width:1680px;margin:0 auto;}
+  .month-nav{display:flex;gap:6px;margin-bottom:0;padding:14px 24px;background:var(--surface);border-bottom:1px solid var(--border);}
+  .month-tab{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;font-family:var(--sans);}
+  .month-tab:hover{border-color:var(--accent);color:var(--text);}
+  .month-tab.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .dept-nav{display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;}
+  .dept-label{font-size:11px;color:var(--text-dim);font-weight:600;letter-spacing:.04em;}
+  .dept-tab{padding:5px 14px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;}
+  .dept-tab:hover{border-color:var(--accent);color:var(--text);}
+  .dept-tab.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .dept-tab[data-dept="第一"].active{background:var(--dept1);border-color:var(--dept1);}
+  .dept-tab[data-dept="第二"].active{background:var(--dept2);border-color:var(--dept2);}
+  .dept-tab[data-dept="第三"].active{background:var(--dept3);border-color:var(--dept3);}
+  .dept-tab[data-dept="第四"].active{background:var(--dept4);border-color:var(--dept4);}
+  .branch-nav{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .branch-tab{padding:9px 14px;border-radius:6px 6px 0 0;border:1px solid transparent;border-bottom:none;cursor:pointer;font-size:12px;font-weight:500;color:var(--text-dim);background:transparent;transition:all .15s;position:relative;bottom:-1px;display:flex;align-items:center;gap:5px;}
+  .branch-tab:hover{color:var(--text);background:var(--surface2);}
+  .branch-tab.active{color:var(--text);background:var(--surface);border-color:var(--border);border-bottom-color:var(--surface);}
+  .branch-tab .tab-count{display:inline-block;background:var(--surface2);border-radius:10px;padding:0 6px;font-size:10px;font-family:var(--mono);}
+  .branch-tab.active .tab-count{background:var(--accent-glow);color:var(--accent);}
+  .branch-tab .dept-pill{display:inline-block;font-size:9px;padding:1px 5px;border-radius:8px;background:var(--surface2);color:var(--text-muted);font-weight:600;}
+  .branch-tab[data-dept="第一"] .dept-pill{background:rgba(26,92,191,.12);color:var(--dept1);}
+  .branch-tab[data-dept="第二"] .dept-pill{background:rgba(26,138,50,.12);color:var(--dept2);}
+  .branch-tab[data-dept="第三"] .dept-pill{background:rgba(200,94,16,.12);color:var(--dept3);}
+  .branch-tab[data-dept="第四"] .dept-pill{background:rgba(154,53,191,.12);color:var(--dept4);}
+  .date-range-bar{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .dr-label{font-size:11px;color:var(--text-dim);font-weight:500;white-space:nowrap;}
+  .dr-dates{display:flex;gap:4px;flex-wrap:wrap;flex:1;}
+  .dr-day{padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:11px;font-family:var(--mono);cursor:pointer;transition:all .12s;white-space:nowrap;line-height:1.3;text-align:center;min-width:42px;}
+  .dr-day:hover{border-color:var(--accent);color:var(--text);}
+  .dr-day.in-range{background:rgba(31,122,219,.12);border-color:rgba(31,122,219,.4);color:var(--actual);}
+  .dr-day.range-start,.dr-day.range-end{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  .dr-day.weekend{border-color:rgba(210,153,34,.35);color:var(--warn);}
+  .dr-day.weekend.in-range{background:rgba(210,153,34,.1);}
+  .dr-day.weekend.range-start,.dr-day.weekend.range-end{background:var(--warn);border-color:var(--warn);color:#fff;}
+  .dr-actions{display:flex;gap:6px;flex-shrink:0;}
+  .dr-preset{padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:11px;cursor:pointer;transition:all .12s;white-space:nowrap;}
+  .dr-preset:hover{border-color:var(--accent);color:var(--text);}
+  .dr-range-display{font-size:12px;font-family:var(--mono);color:var(--actual);background:var(--accent-glow);border:1px solid rgba(31,122,219,.3);border-radius:5px;padding:4px 10px;white-space:nowrap;}
+  .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+  .prog-wrap{margin-bottom:9px;}
+  .prog-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+  .prog-name{font-size:10px;color:var(--text-dim);}
+  .prog-pct{font-size:13px;font-family:var(--mono);font-weight:500;}
+  .prog-track{height:14px;background:#e4e8ee;border-radius:4px;overflow:hidden;border:1px solid #cdd2da;}
+  .prog-fill{height:100%;border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1);display:flex;align-items:center;justify-content:flex-end;padding-right:6px;}
+  .prog-fill-text{font-size:9px;font-family:var(--mono);color:rgba(255,255,255,.9);font-weight:500;white-space:nowrap;}
+  .kpi-divider{height:1px;background:var(--border);margin:10px 0;}
+  .kpi-sigs{display:flex;gap:5px;flex-wrap:wrap;}
+  .sig-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:4px;font-size:11px;font-family:var(--mono);font-weight:500;}
+  .sig-g{background:rgba(63,185,80,.15);color:var(--success);}
+  .sig-y{background:rgba(210,153,34,.15);color:var(--warn);}
+  .sig-r{background:rgba(248,81,73,.15);color:var(--danger);}
+  .sig-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+  .diff-plus{color:var(--success);font-family:var(--mono);font-size:10px;margin-left:3px;}
+  .diff-minus{color:var(--danger);font-family:var(--mono);font-size:10px;margin-left:3px;}
+  .diff-zero{color:var(--text-muted);font-family:var(--mono);font-size:10px;margin-left:3px;}
+  .filter-sep{height:1px;background:var(--border);margin:8px 0 12px;}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px;}
+  .panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;}
+  .panel-title{font-size:13px;font-weight:600;}
+  .panel-subtitle{font-size:11px;color:var(--text-dim);}
+  .summary-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .summary-table th{padding:6px 10px;text-align:right;font-weight:500;color:var(--text-dim);font-size:10px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);white-space:nowrap;}
+  .summary-table th:first-child{text-align:left;}
+  .summary-table td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px;white-space:nowrap;}
+  .summary-table td:first-child{text-align:left;font-family:var(--sans);font-weight:500;}
+  .summary-table tr:last-child td{border-bottom:none;}
+  .summary-table tr:hover td{background:var(--surface2);}
+  .col-budget{color:var(--budget);}
+  .col-plan{color:var(--plan);}
+  .col-actual{color:var(--actual);}
+  .unit-note{font-size:10px;color:var(--text-muted);margin-left:3px;}
+  .rate-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-family:var(--mono);font-weight:500;}
+  .rate-good{background:rgba(63,185,80,.15);color:var(--success);}
+  .rate-warn{background:rgba(210,153,34,.15);color:var(--warn);}
+  .rate-bad{background:rgba(248,81,73,.15);color:var(--danger);}
+  .rate-na{background:var(--surface2);color:var(--text-muted);}
+  .calendar-wrap{overflow-x:auto;}
+  .calendar-table{border-collapse:collapse;font-size:11px;}
+  .calendar-table th{padding:5px 5px;font-size:10px;font-weight:500;color:var(--text-dim);text-align:center;white-space:nowrap;border-bottom:1px solid var(--border);min-width:64px;}
+  .calendar-table th.col-vehicle{text-align:left;min-width:90px;position:sticky;left:0;background:var(--surface);z-index:2;}
+  .calendar-table td{padding:3px 4px;text-align:center;border-right:1px solid var(--border);border-bottom:1px solid rgba(48,54,61,.5);vertical-align:top;}
+  .calendar-table td.col-vehicle{text-align:left;font-family:var(--sans);border-right:2px solid var(--border);padding:4px 8px;white-space:nowrap;position:sticky;left:0;background:var(--surface);z-index:1;}
+  .calendar-table .day-sat{background:rgba(26,92,191,.06);}
+  .calendar-table .day-sun{background:rgba(198,40,40,.06);}
+  .cal-cell{display:flex;flex-direction:column;gap:1px;min-height:40px;align-items:center;justify-content:center;}
+  .cal-amount{font-family:var(--mono);font-size:10px;line-height:1.3;}
+  .cal-budget-amt{color:var(--budget);opacity:.8;}
+  .cal-plan-amt{color:var(--plan);}
+  .cal-actual-amt{color:var(--actual);font-weight:500;}
+  .cal-idle{opacity:.18;}
+  .type-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+  .type-btn{padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:11px;cursor:pointer;transition:all .15s;}
+  .type-btn:hover{border-color:var(--accent);color:var(--text);}
+  .type-btn.active{background:var(--accent-glow);border-color:var(--accent);color:var(--actual);}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:900px){.two-col{grid-template-columns:1fr;}}
+  .gauge-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .gauge-label{font-size:11px;color:var(--text-dim);width:80px;flex-shrink:0;}
+  .gauge-track{flex:1;height:8px;background:#e0e4ea;border-radius:4px;overflow:hidden;}
+  .gauge-fill{height:100%;border-radius:4px;transition:width .6s ease;}
+  .gauge-val{font-family:var(--mono);font-size:11px;width:44px;text-align:right;flex-shrink:0;}
+  .legend{display:flex;gap:16px;align-items:center;flex-wrap:wrap;}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-dim);}
+  .legend-dot{width:8px;height:8px;border-radius:50%;}
+  .no-data{text-align:center;padding:48px;color:var(--text-muted);font-size:13px;}
+  .updated-badge{font-size:11px;color:var(--text-muted);font-family:var(--mono);}
+  .cat-bars{display:flex;flex-direction:column;gap:6px;}
+  .cat-row{display:flex;align-items:center;gap:8px;font-size:11px;}
+  .cat-name{flex-shrink:0;width:180px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cat-name.untyped{color:var(--text-muted);font-style:italic;}
+  .cat-bar-wrap{flex:1;display:flex;flex-direction:column;gap:2px;}
+  .cat-bar-row{display:flex;align-items:center;gap:4px;height:10px;}
+  .cat-bar-track{flex:1;height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;position:relative;}
+  .cat-bar-fill{height:100%;border-radius:4px;position:absolute;left:0;top:0;}
+  .cat-bar-val{font-family:var(--mono);font-size:9px;width:62px;text-align:right;flex-shrink:0;}
+  .cat-bar-cnt{font-family:var(--mono);font-size:10px;color:var(--text-muted);width:48px;text-align:right;flex-shrink:0;}
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-track{background:#eaecef;}
+  ::-webkit-scrollbar-thumb{background:#b0b6c0;border-radius:3px;}
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="header-left">
+    <div class="logo-mark">梅</div>
+    <div>
+      <div class="header-title">車両生産性ダッシュボード</div>
+      <div class="header-sub">梅田運輸倉庫株式会社 ｜ 営業推進部</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="period-badge" id="periodBadge">読み込み中...</div>
+    <div class="updated-badge" id="updatedBadge">更新日時：取得中...</div>
+  </div>
+</header>
+<div class="month-nav" id="monthNav"></div>
+<main class="main">
+  <div class="dept-nav" id="deptNav"></div>
+  <nav class="branch-nav" id="branchNav"></nav>
+  <div class="type-filter" id="typeFilterTop" style="margin-bottom:10px;margin-top:10px;"></div>
+  <div class="filter-sep"></div>
+  <div id="kpiCards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;"></div>
+  <div class="date-range-bar" id="dateRangeBar">
+    <div class="dr-label">集計期間</div>
+    <div class="dr-dates" id="drDates"></div>
+    <div class="dr-actions">
+      <div class="dr-range-display" id="drDisplay">— 〜 —</div>
+      <button class="dr-preset" onclick="setPreset('all')">全期間</button>
+      <button class="dr-preset" onclick="setPreset('first15')">前半（1〜15日）</button>
+      <button class="dr-preset" onclick="setPreset('second')">後半（16日〜）</button>
+      <button class="dr-preset" onclick="setPreset('week')">直近7日</button>
+    </div>
+  </div>
+  <div id="chartArea"></div>
+  <div id="contentArea"><div class="no-data">データを読み込んでいます...</div></div>
+</main>
+<script>
+const ALL_DATA_URL='https://umeda-transport.github.io/vehicle-dashboard/all_data.json';
+const DEPT_LIST=['第一','第二','第三','第四'];
+const DEPT_COLORS={'第一':'#1a5cbf','第二':'#1a8a32','第三':'#c85e10','第四':'#9a35bf'};
+let ALL_DATA={};
+let DB={};
+let currentMonth=null;
+let currentDept='ALL';
+let currentBranch='ALL';
+let currentTypes=new Set(['ALL']);
+let rangeStart=null,rangeEnd=null,clickingRange=0;
+
+function serialToDate(s){return new Date(new Date(1899,11,30).getTime()+s*86400000);}
+function serialDay(s){return serialToDate(s).getDay();}
+function isWeekend(s){const d=serialDay(s);return d===0||d===6;}
+function dayLabel(s){return serialToDate(s).getDate()+'';}
+function dayOfWeekLabel(s){return['日','月','火','水','木','金','土'][serialDay(s)];}
+function fmtK(n){if(n===null||n===undefined)return'—';return Math.round(n/1000).toLocaleString('ja-JP');}
+function fmtKcompact(n){if(n===null||n===undefined)return'';return Math.round(n/1000).toLocaleString('ja-JP');}
+function pct(a,b){if(!b||b===0)return null;return Math.round(a/b*100);}
+function rateBadge(p){if(p===null)return'<span class="rate-badge rate-na">—</span>';const cls=p>=100?'rate-good':p>=80?'rate-warn':'rate-bad';return'<span class="rate-badge '+cls+'">'+p+'%</span>';}
+function gaugeFillColor(p){if(p===null)return'var(--text-muted)';if(p>=100)return'var(--success)';if(p>=80)return'var(--warn)';return'var(--danger)';}
+
+function allBranches(){return Object.keys(DB);}
+function visibleBranches(){
+  if(currentDept==='ALL')return allBranches();
+  return allBranches().filter(b=>DB[b]&&DB[b].dept===currentDept);
+}
+function getDates(branch){
+  if(branch==='ALL'){
+    const bs=visibleBranches();
+    for(const b of bs){if(DB[b]&&DB[b].dates&&DB[b].dates.length)return DB[b].dates;}
+    return [];
+  }
+  return DB[branch]?DB[branch].dates:[];
+}
+function filteredDates(branch){return getDates(branch).filter(d=>d.serial>=rangeStart&&d.serial<=rangeEnd);}
+function getVehicles(branch,types){
+  const branches=branch==='ALL'?visibleBranches():[branch];
+  let vs=[];
+  for(const b of branches){
+    if(!DB[b])continue;
+    let bvs=DB[b].vehicles;
+    if(!types.has('ALL'))bvs=bvs.filter(v=>types.has(v.type));
+    vs=vs.concat(bvs.map(v=>({...v,_branch:b})));
+  }
+  return vs;
+}
+function getAllTypes(){
+  const types=new Set();
+  for(const b of visibleBranches()){
+    if(!DB[b])continue;
+    for(const v of DB[b].vehicles)types.add(v.type);
+  }
+  return Array.from(types).sort();
+}
+function setText(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
+
+// ── 月タブ ─────────────────────────────────
+function buildMonthNav(){
+  const nav=document.getElementById('monthNav');
+  if(!nav)return;
+  nav.innerHTML='';
+  const months=Object.keys(ALL_DATA).sort();
+  months.forEach(m=>{
+    const btn=document.createElement('button');
+    btn.className='month-tab';
+    btn.dataset.month=m;
+    const year=m.slice(0,4);
+    const month=parseInt(m.slice(4));
+    btn.textContent=year+'年'+month+'月';
+    btn.onclick=()=>selectMonth(m);
+    nav.appendChild(btn);
+  });
+}
+function selectMonth(monthKey){
+  currentMonth=monthKey;
+  DB=ALL_DATA[monthKey]||{};
+  document.querySelectorAll('.month-tab').forEach(t=>{t.classList.toggle('active',t.dataset.month===monthKey);});
+  currentDept='ALL';
+  currentBranch='ALL';
+  currentTypes=new Set(['ALL']);
+  initUI();
+}
+
+// ── 事業部ナビ ─────────────────────────────────
+function buildDeptNav(){
+  const nav=document.getElementById('deptNav');
+  if(!nav)return;
+  nav.innerHTML='<span class="dept-label">事業部：</span>';
+  const mkBtn=(label,val)=>{
+    const btn=document.createElement('button');
+    btn.className='dept-tab'+(currentDept===val?' active':'');
+    btn.dataset.dept=val;
+    if(val==='ALL'){
+      const total=allBranches().length;
+      btn.textContent='全社（'+total+'営業所）';
+    } else {
+      const branches=allBranches().filter(b=>DB[b]&&DB[b].dept===val);
+      btn.textContent=val+'（'+branches.length+'営業所）';
+    }
+    btn.onclick=()=>selectDept(val);
+    return btn;
+  };
+  nav.appendChild(mkBtn('全社','ALL'));
+  for(const d of DEPT_LIST)nav.appendChild(mkBtn(d,d));
+}
+function selectDept(dept){
+  currentDept=dept;
+  currentBranch='ALL';
+  currentTypes=new Set(['ALL']);
+  document.querySelectorAll('.dept-tab').forEach(t=>{t.classList.toggle('active',t.dataset.dept===dept);});
+  buildBranchNav();
+  buildTopTypeFilter();
+  updateKPIs();
+  renderContent();
+  renderChartsArea();
+}
+
+// ── 営業所ナビ ─────────────────────────────────
+function buildBranchNav(){
+  const nav=document.getElementById('branchNav');
+  if(!nav)return;
+  nav.innerHTML='';
+  const allBtn=document.createElement('button');
+  allBtn.className='branch-tab'+(currentBranch==='ALL'?' active':'');
+  const visibleBs=visibleBranches();
+  allBtn.innerHTML=(currentDept==='ALL'?'全営業所':currentDept+' 全体')+' <span class="tab-count">'+visibleBs.length+'</span>';
+  allBtn.onclick=()=>selectBranch('ALL');
+  nav.appendChild(allBtn);
+  // 事業部順にソートして営業所タブを生成
+  const sortedBranches=visibleBs.slice().sort((a,b)=>{
+    const da=DB[a]?DB[a].dept:'',db_=DB[b]?DB[b].dept:'';
+    if(da!==db_)return da.localeCompare(db_);
+    return a.localeCompare(b,'ja');
+  });
+  for(const b of sortedBranches){
+    const bData=DB[b];if(!bData)continue;
+    const btn=document.createElement('button');
+    btn.className='branch-tab'+(currentBranch===b?' active':'');
+    btn.dataset.dept=bData.dept;
+    btn.innerHTML='<span class="dept-pill">'+bData.dept+'</span>'+b+' <span class="tab-count">'+bData.vehicles.length+'</span>';
+    btn.onclick=()=>selectBranch(b);
+    nav.appendChild(btn);
+  }
+}
+function selectBranch(branch){
+  currentBranch=branch;
+  currentTypes=new Set(['ALL']);
+  buildBranchNav();
+  buildTopTypeFilter();
+  updateKPIs();
+  renderContent();
+  renderChartsArea();
+}
+
+// ── 車種フィルタ ─────────────────────────────────
+function getTypesForView(){
+  const branches=currentBranch==='ALL'?visibleBranches():[currentBranch];
+  const types=new Set();
+  for(const b of branches){if(!DB[b])continue;for(const v of DB[b].vehicles)types.add(v.type);}
+  return Array.from(types).sort();
+}
+function buildTopTypeFilter(){
+  const container=document.getElementById('typeFilterTop');
+  if(!container)return;
+  container.innerHTML='';
+  const types=getTypesForView();
+  const mkBtn=(label,val)=>{
+    const btn=document.createElement('button');
+    btn.className='type-btn'+(currentTypes.has(val)||(currentTypes.has('ALL')&&val==='ALL')?' active':'');
+    btn.textContent=label;
+    btn.onclick=()=>{
+      if(val==='ALL'){currentTypes=new Set(['ALL']);}
+      else{currentTypes.delete('ALL');currentTypes.has(val)?currentTypes.delete(val):currentTypes.add(val);if(!currentTypes.size)currentTypes=new Set(['ALL']);}
+      container.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));
+      if(currentTypes.has('ALL'))container.querySelector('.type-btn').classList.add('active');
+      else container.querySelectorAll('.type-btn').forEach(b=>{if(currentTypes.has(b.textContent))b.classList.add('active');});
+      updateKPIs();refreshPanels();renderChartsArea();
+    };
+    return btn;
+  };
+  container.appendChild(mkBtn('全車種','ALL'));
+  for(const t of types)container.appendChild(mkBtn(t,t));
+}
+
+// ── 日付バー ─────────────────────────────────
+function buildDateBar(){
+  const container=document.getElementById('drDates');if(!container)return;
+  container.innerHTML='';
+  const dates=getDates('ALL');
+  dates.forEach(d=>{
+    const btn=document.createElement('button');
+    btn.className='dr-day'+(isWeekend(d.serial)?' weekend':'');
+    btn.dataset.serial=d.serial;
+    btn.innerHTML='<div>'+dayLabel(d.serial)+'</div><div style="font-size:9px;opacity:.6">'+dayOfWeekLabel(d.serial)+'</div>';
+    btn.onclick=()=>handleDayClick(d.serial);
+    container.appendChild(btn);
+  });
+  updateDateBarHighlight();updateDrDisplay();
+}
+function handleDayClick(serial){
+  if(clickingRange===0){rangeStart=serial;rangeEnd=serial;clickingRange=1;}
+  else{if(serial<rangeStart)rangeStart=serial;else rangeEnd=serial;clickingRange=0;}
+  updateDateBarHighlight();updateDrDisplay();updateKPIs();refreshPanels();renderChartsArea();
+}
+function updateDateBarHighlight(){
+  document.querySelectorAll('.dr-day').forEach(btn=>{
+    const s=parseInt(btn.dataset.serial);
+    btn.classList.remove('in-range','range-start','range-end');
+    if(s===rangeStart)btn.classList.add('range-start');
+    else if(s===rangeEnd)btn.classList.add('range-end');
+    else if(s>rangeStart&&s<rangeEnd)btn.classList.add('in-range');
+  });
+}
+function updateDrDisplay(){
+  const el=document.getElementById('drDisplay');if(!el)return;
+  if(rangeStart&&rangeEnd){const ds=serialToDate(rangeStart),de=serialToDate(rangeEnd);el.textContent=(ds.getMonth()+1)+'/'+ds.getDate()+' 〜 '+(de.getMonth()+1)+'/'+de.getDate();}
+}
+function setPreset(mode){
+  const dates=getDates('ALL');if(!dates.length)return;
+  const serials=dates.map(d=>d.serial);
+  const min=Math.min(...serials),max=Math.max(...serials);
+  if(mode==='all'){rangeStart=min;rangeEnd=max;}
+  else if(mode==='first15'){rangeStart=min;rangeEnd=serials.filter(s=>serialToDate(s).getDate()<=15).pop()||min;}
+  else if(mode==='second'){rangeStart=serials.find(s=>serialToDate(s).getDate()>=16)||min;rangeEnd=max;}
+  else if(mode==='week'){rangeStart=serials[Math.max(0,serials.length-7)];rangeEnd=max;}
+  clickingRange=0;updateDateBarHighlight();updateDrDisplay();updateKPIs();refreshPanels();renderChartsArea();
+}
+
+// ── KPI ─────────────────────────────────
+function sigClass(p){return p===null?'':p>=100?'sig-g':p>=80?'sig-y':'sig-r';}
+function sigDotColor(p){return p===null?'var(--text-muted)':p>=100?'var(--success)':p>=80?'var(--warn)':'var(--danger)';}
+function diffHtml(diff,unit){
+  if(diff===null)return'';
+  if(diff>0)return'<span class="diff-plus">▲ +'+diff.toLocaleString('ja-JP')+unit+'</span>';
+  if(diff<0)return'<span class="diff-minus">▼ '+diff.toLocaleString('ja-JP')+unit+'</span>';
+  return'<span class="diff-zero">± 0'+unit+'</span>';
+}
+function progBar(targetVal,actVal,color,unit){
+  const r=pct(actVal,targetVal);
+  const w=Math.min(r||0,100);
+  const tStr=unit==='千円'?fmtK(targetVal):targetVal.toLocaleString('ja-JP');
+  const aStr=unit==='千円'?fmtK(actVal):actVal.toLocaleString('ja-JP');
+  return'<div class="prog-track"><div class="prog-fill" style="width:'+w+'%;background:'+color+'"><span class="prog-fill-text">'+tStr+'→'+aStr+unit+'</span></div></div>';
+}
+function sigBadge(label,r,diff,unit){
+  const cls=sigClass(r);const dotColor=sigDotColor(r);
+  return'<span class="sig-badge '+cls+'"><span class="sig-dot" style="background:'+dotColor+'"></span>'+label+' '+(r!==null?r+'%':'—')+diffHtml(diff,unit)+'</span>';
+}
+function buildKpiCard(label,value,sub,rows){
+  let html='<div class="kpi-card">';
+  html+='<div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:4px;">'+label+'</div>';
+  html+='<div style="font-size:22px;font-weight:700;font-family:var(--mono);color:var(--text);">'+value+'</div>';
+  html+='<div style="font-size:11px;color:var(--text-muted);margin-top:2px;margin-bottom:12px;">'+sub+'</div>';
+  for(const row of rows){
+    html+='<div class="prog-wrap">';
+    html+='<div class="prog-label"><span class="prog-name">'+row.name+'</span><span class="prog-pct" style="color:'+row.color+'">'+(row.rate!==null?row.rate+'%':'—')+'</span></div>';
+    if(row.targetVal&&row.actVal)html+=progBar(row.targetVal,row.actVal,row.color,row.unit);
+    html+='</div>';
+  }
+  html+='<div class="kpi-divider"></div><div class="kpi-sigs">';
+  for(const row of rows)html+=sigBadge(row.badge,row.rate,row.diff,row.unit);
+  html+='</div></div>';
+  return html;
+}
+function updateKPIs(){
+  if(!rangeStart||!rangeEnd)return;
+  const vs=getVehicles(currentBranch,currentTypes);
+  const allVOwned=getVehicles(currentBranch,new Set(['ALL']));
+  const totalOwned=allVOwned.length;
+  let bDays=0,pDays=0,aDays=0,bAmt=0,pAmt=0,aAmt=0;
+  const budgetVSet=new Set(),planVSet=new Set(),actVSet=new Set();
+  for(const v of vs)for(const d of v.daily){
+    if(d.s<rangeStart||d.s>rangeEnd)continue;
+    if(d.b!==null){bDays++;bAmt+=d.b;budgetVSet.add(v.number+'_'+(v._branch||''));}
+    if(d.p!==null){pDays++;pAmt+=d.p;planVSet.add(v.number+'_'+(v._branch||''));}
+    if(d.a!==null){aDays++;aAmt+=d.a;actVSet.add(v.number+'_'+(v._branch||''));}
+  }
+  const budgetV=budgetVSet.size,planV=planVSet.size,actV=actVSet.size;
+  const rVvB=pct(actV,budgetV),rVvP=pct(actV,planV);
+  const rDvB=pct(aDays,bDays),rDvP=pct(aDays,pDays);
+  const rAvB=pct(aAmt,bAmt),rAvP=pct(aAmt,pAmt);
+  const bAvg=bDays?Math.round(bAmt/bDays):0,pAvg=pDays?Math.round(pAmt/pDays):0,aAvg=aDays?Math.round(aAmt/aDays):0;
+  const rAvgvB=pct(aAvg,bAvg),rAvgvP=pct(aAvg,pAvg);
+  const container=document.getElementById('kpiCards');
+  if(!container)return;
+  container.innerHTML=[
+    buildKpiCard('稼働台数（実績）',actV+'台','保有 '+totalOwned+' 台',[
+      {name:'予算に対する進捗',badge:'予算比',color:'#f0883e',rate:rVvB,targetVal:budgetV,actVal:actV,diff:budgetV?actV-budgetV:null,unit:'台'},
+      {name:'予定に対する進捗',badge:'予定比',color:'#3fb950',rate:rVvP,targetVal:planV,actVal:actV,diff:planV?actV-planV:null,unit:'台'},
+    ]),
+    buildKpiCard('稼働日数（実績）',aDays.toLocaleString('ja-JP')+'日','台×日の合計',[
+      {name:'予算に対する進捗',badge:'予算比',color:'#f0883e',rate:rDvB,targetVal:bDays,actVal:aDays,diff:bDays?aDays-bDays:null,unit:'日'},
+      {name:'予定に対する進捗',badge:'予定比',color:'#3fb950',rate:rDvP,targetVal:pDays,actVal:aDays,diff:pDays?aDays-pDays:null,unit:'日'},
+    ]),
+    buildKpiCard('金額合計（千円）',aAmt?fmtK(aAmt):'—','実績',[
+      {name:'予算に対する進捗',badge:'予算比',color:'#f0883e',rate:rAvB,targetVal:bAmt,actVal:aAmt,diff:bAmt?Math.round((aAmt-bAmt)/1000):null,unit:'千円'},
+      {name:'予定に対する進捗',badge:'予定比',color:'#3fb950',rate:rAvP,targetVal:pAmt,actVal:aAmt,diff:pAmt?Math.round((aAmt-pAmt)/1000):null,unit:'千円'},
+    ]),
+    buildKpiCard('1台1日平均（千円）',aAvg?fmtK(aAvg):'—','実績',[
+      {name:'予算に対する進捗',badge:'予算比',color:'#f0883e',rate:rAvgvB,targetVal:bAvg,actVal:aAvg,diff:bAvg?Math.round((aAvg-bAvg)/1000):null,unit:'千円'},
+      {name:'予定に対する進捗',badge:'予定比',color:'#3fb950',rate:rAvgvP,targetVal:pAvg,actVal:aAvg,diff:pAvg?Math.round((aAvg-pAvg)/1000):null,unit:'千円'},
+    ]),
+  ].join('');
+}
+
+// ── チャートエリア（①〜⑥） ─────────────────────────────────
+function renderChartsArea(){
+  const el=document.getElementById('chartArea');
+  if(!el)return;
+  el.innerHTML=buildChartsHtml();
+}
+function buildChartsHtml(){
+  const branches=currentBranch==='ALL'?visibleBranches():[currentBranch];
+  let html='';
+  // 営業所別の集計
+  let maxAmt=1;
+  const bStats={};
+  const fdS=new Set(filteredDates('ALL').map(d=>d.serial));
+  for(const b of branches){
+    if(!DB[b])continue;
+    let bA=0,pA=0,aA=0;
+    for(const v of DB[b].vehicles){
+      if(!currentTypes.has('ALL')&&!currentTypes.has(v.type))continue;
+      for(const d of v.daily){
+        if(!fdS.has(d.s))continue;
+        if(d.b!==null)bA+=d.b;
+        if(d.p!==null)pA+=d.p;
+        if(d.a!==null)aA+=d.a;
+      }
+    }
+    bStats[b]={bA,pA,aA};
+    maxAmt=Math.max(maxAmt,bA,pA,aA);
+  }
+  // ① 棒グラフ
+  let bars='';
+  for(const b of branches){
+    const d=bStats[b]||{bA:0,pA:0,aA:0};
+    const hB=d.bA?Math.round(d.bA/maxAmt*100):0;
+    const hP=d.pA?Math.round(d.pA/maxAmt*100):0;
+    const hA=d.aA?Math.round(d.aA/maxAmt*100):0;
+    const lbl=b.length>4?b.slice(0,4):b;
+    const bAmtK=d.bA?Math.round(d.bA/1000).toLocaleString()+'千':'—';
+    const pAmtK=d.pA?Math.round(d.pA/1000).toLocaleString()+'千':'—';
+    const aAmtK=d.aA?Math.round(d.aA/1000).toLocaleString()+'千':'—';
+    bars+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;min-width:32px;"><div style="display:flex;align-items:flex-end;gap:1px;height:100px;width:100%;"><div style="border-radius:3px 3px 0 0;flex:1;min-width:6px;height:'+hB+'%;background:var(--budget);opacity:.6" title="'+b+' 予算:'+bAmtK+'"></div><div style="border-radius:3px 3px 0 0;flex:1;min-width:6px;height:'+hP+'%;background:var(--plan);opacity:.8" title="'+b+' 予定:'+pAmtK+'"></div><div style="border-radius:3px 3px 0 0;flex:1;min-width:6px;height:'+hA+'%;background:var(--actual)" title="'+b+' 実績:'+aAmtK+'"></div></div><div style="font-size:9px;color:var(--text-dim);text-align:center;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;">'+lbl+'</div></div>';
+  }
+  html+='<div class="panel"><div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);">① 月間進捗 棒グラフ（営業所別）</div><div style="font-size:11px;color:var(--text-dim);display:flex;gap:12px;margin-bottom:8px;"><span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--budget);display:inline-block;"></span>予算</span><span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--plan);display:inline-block;"></span>予定</span><span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--actual);display:inline-block;"></span>実績</span></div><div style="display:flex;gap:4px;align-items:flex-end;overflow-x:auto;">'+bars+'</div></div>';
+  // ② 折れ線
+  const allDates=getDates('ALL').filter(d=>d.serial>=rangeStart&&d.serial<=rangeEnd);
+  const ptsB=[],ptsP=[],ptsA=[];
+  let cumB=0,cumP=0,cumA=0;
+  for(const dt of allDates){
+    for(const b of branches){
+      if(!DB[b])continue;
+      for(const v of DB[b].vehicles){
+        if(!currentTypes.has('ALL')&&!currentTypes.has(v.type))continue;
+        const day=v.daily.find(x=>x.s===dt.serial);
+        if(day&&day.b!==null)cumB+=day.b;
+        if(day&&day.p!==null)cumP+=day.p;
+        if(day&&day.a!==null)cumA+=day.a;
+      }
+    }
+    ptsB.push(cumB);ptsP.push(cumP);ptsA.push(cumA);
+  }
+  const maxCum=Math.max(cumB,cumP,cumA,1);
+  const W=520,H=80,PAD=32;
+  const n=allDates.length||1;
+  const toX=i=>PAD+(W-PAD)*(i/(n-1||1));
+  const toY=v=>H-Math.round(v/maxCum*H);
+  const mkPts=arr=>arr.map((v,i)=>toX(i)+','+toY(v)).join(' ');
+  let svg='<svg viewBox="0 0 '+W+' '+(H+16)+'" style="width:100%;height:'+(H+16)+'px;">';
+  svg+='<line x1="'+PAD+'" y1="0" x2="'+PAD+'" y2="'+H+'" stroke="var(--border)" stroke-width="0.5"/>';
+  svg+='<line x1="'+PAD+'" y1="'+H+'" x2="'+W+'" y2="'+H+'" stroke="var(--border)" stroke-width="0.5"/>';
+  svg+='<line x1="'+PAD+'" y1="'+(H/2)+'" x2="'+W+'" y2="'+(H/2)+'" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/>';
+  svg+='<text x="0" y="'+(H+4)+'" font-size="8" fill="var(--text-dim)">0</text>';
+  svg+='<text x="0" y="'+(H/2+4)+'" font-size="8" fill="var(--text-dim)">'+Math.round(maxCum/2000).toLocaleString()+'千</text>';
+  if(ptsB.length>1)svg+='<polyline points="'+mkPts(ptsB)+'" fill="none" stroke="var(--budget)" stroke-width="1.5" stroke-dasharray="5 2" opacity=".6"/>';
+  if(ptsP.length>1)svg+='<polyline points="'+mkPts(ptsP)+'" fill="none" stroke="var(--plan)" stroke-width="1.5" stroke-dasharray="3 2" opacity=".8"/>';
+  if(ptsA.length>1)svg+='<polyline points="'+mkPts(ptsA)+'" fill="none" stroke="var(--actual)" stroke-width="2"/>';
+  if(ptsA.length>0){const lx=toX(ptsA.length-1),ly=toY(ptsA[ptsA.length-1]);svg+='<circle cx="'+lx+'" cy="'+ly+'" r="3" fill="var(--actual)"/>';}
+  svg+='</svg>';
+  const lastA=ptsA.length>0?(ptsA[ptsA.length-1]||0):0;
+  const lastP=ptsP.length>0?(ptsP[ptsP.length-1]||0):0;
+  const notice=lastA>lastP?'<div style="font-size:10px;color:var(--plan);margin-top:4px;font-weight:500;">▲ 実績が予定を上回っています</div>':(lastA>0?'<div style="font-size:10px;color:var(--text-dim);margin-top:4px;">実績は予定の '+(lastP>0?Math.round(lastA/lastP*100):0)+'% です</div>':'');
+  html+='<div class="panel"><div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);">② 日別累計 折れ線グラフ</div><div style="font-size:11px;color:var(--text-dim);display:flex;gap:12px;margin-bottom:8px;"><span style="display:flex;align-items:center;gap:4px;"><span style="width:20px;height:2px;background:var(--budget);opacity:.6;display:inline-block;"></span>予算累計</span><span style="display:flex;align-items:center;gap:4px;"><span style="width:20px;height:2px;background:var(--plan);opacity:.8;display:inline-block;"></span>予定累計</span><span style="display:flex;align-items:center;gap:4px;"><span style="width:20px;height:2px;background:var(--actual);display:inline-block;"></span>実績累計</span></div>'+svg+notice+'</div>';
+  // ③ 達成率
+  let prog3='';
+  for(const b of branches){
+    const d=bStats[b]||{bA:0,pA:0,aA:0};
+    const rb=d.bA>0?Math.round(d.aA/d.bA*100):null;
+    const rp=d.pA>0?Math.round(d.aA/d.pA*100):null;
+    const colB=rb===null?'var(--text-muted)':rb>=100?'var(--plan)':rb>=80?'var(--warn)':'var(--danger)';
+    const colP=rp===null?'var(--text-muted)':rp>=100?'var(--plan)':rp>=80?'var(--warn)':'var(--danger)';
+    const wB=Math.min(rb||0,100);
+    const wP=Math.min(rp||0,100);
+    const lbl=b.length>5?b.slice(0,5):b;
+    prog3+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;"><div style="font-size:11px;color:var(--text);width:58px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+lbl+'</div><div style="flex:1;display:flex;flex-direction:column;gap:2px;"><div style="height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;position:relative;"><div style="height:100%;border-radius:4px;position:absolute;left:0;top:0;width:'+wB+'%;background:var(--budget);opacity:.8;"></div></div><div style="height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;position:relative;"><div style="height:100%;border-radius:4px;position:absolute;left:0;top:0;width:'+wP+'%;background:var(--plan);opacity:.9;"></div></div></div><div style="display:flex;flex-direction:column;gap:2px;width:36px;"><div style="font-size:10px;font-family:monospace;text-align:right;color:'+colB+';">'+(rb!==null?rb+'%':'—')+'</div><div style="font-size:10px;font-family:monospace;text-align:right;color:'+colP+';">'+(rp!==null?rp+'%':'—')+'</div></div></div>';
+  }
+  // ④ ヒートマップ
+  const dayNames=['日','月','火','水','木','金','土'];
+  let heatHdr='';
+  for(const d of dayNames){const col=d==='日'?'color:var(--danger)':d==='土'?'color:var(--actual)':'';heatHdr+='<div style="font-size:8px;color:var(--text-dim);text-align:center;'+col+'">'+d+'</div>';}
+  const firstDate=allDates.length>0?new Date(new Date(1899,11,30).getTime()+allDates[0].serial*86400000):new Date();
+  const firstDow=firstDate.getDay();
+  let heatCells='';
+  for(let i=0;i<firstDow;i++)heatCells+='<div></div>';
+  for(const dt of allDates){
+    const dow=new Date(new Date(1899,11,30).getTime()+dt.serial*86400000).getDay();
+    let pV=0,aV=0;
+    for(const b of branches){
+      if(!DB[b])continue;
+      for(const v of DB[b].vehicles){
+        if(!currentTypes.has('ALL')&&!currentTypes.has(v.type))continue;
+        const day=v.daily.find(x=>x.s===dt.serial);
+        if(day&&day.p!==null)pV++;
+        if(day&&day.a!==null)aV++;
+      }
+    }
+    const isWe=dow===0||dow===6;
+    if(isWe&&pV===0&&aV===0){heatCells+='<div style="height:16px;border-radius:2px;background:var(--surface2);"></div>';continue;}
+    const rate=pV>0?Math.round(aV/pV*100):0;
+    let bg='',col='';
+    if(aV===0&&pV===0){bg='var(--surface2)';col='var(--text-muted)';}
+    else if(rate>=100){bg='#c8e6c9';col='#1b5e20';}
+    else if(rate>=90){bg='#bbdefb';col='#0d47a1';}
+    else if(rate>=80){bg='#ffe0b2';col='#e65100';}
+    else{bg='#ffcdd2';col='#b71c1c';}
+    heatCells+='<div style="height:16px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:8px;background:'+bg+';color:'+col+';">'+(rate>0?rate+'%':'—')+'</div>';
+  }
+  html+='<div class="two-col"><div class="panel"><div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);">③ 営業所別 達成率</div><div style="font-size:9px;color:var(--text-dim);margin-bottom:6px;display:flex;gap:10px;"><span>■予算比</span><span>■予定比</span></div>'+prog3+'</div><div class="panel"><div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);">④ 稼働ヒートマップ（実績/予定）</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px;">'+heatHdr+'</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;">'+heatCells+'</div><div style="display:flex;gap:8px;margin-top:6px;align-items:center;"><span style="font-size:9px;color:var(--text-dim);">低</span><div style="height:5px;flex:1;background:linear-gradient(to right,#ffcdd2,#ffe0b2,#bbdefb,#c8e6c9);border-radius:3px;"></div><span style="font-size:9px;color:var(--text-dim);">高</span></div></div></div>';
+  // ⑤⑥ 配送情報集計
+  if(currentBranch==='ALL'){
+    // 全営業所タブ：⑤得意先別、⑥貨物の内容別
+    html+=buildCategoryPanel('⑤ 得意先別 売上集計','client','その車両の主要な得意先で集計');
+    html+=buildCategoryPanel('⑥ 貨物の内容別 売上集計','cargo','その車両の主要な貨物の内容で集計');
+  } else {
+    // 個別営業所タブ：⑤配送の内容別
+    html+=buildCategoryPanel('⑤ 配送の内容別 売上集計（営業所内）','delivery','この営業所内の配送の内容で集計');
+  }
+  return html;
+}
+
+// ── 配送情報パネル（得意先/貨物/配送） ─────────────────────────────────
+function buildCategoryPanel(title,key,subtitle){
+  const branches=currentBranch==='ALL'?visibleBranches():[currentBranch];
+  const fdS=new Set(filteredDates('ALL').map(d=>d.serial));
+  // カテゴリごとに集計
+  const cats={};
+  let total={bA:0,pA:0,aA:0};
+  for(const b of branches){
+    if(!DB[b])continue;
+    for(const v of DB[b].vehicles){
+      if(!currentTypes.has('ALL')&&!currentTypes.has(v.type))continue;
+      const cat=v[key]||'(未入力)';
+      if(!cats[cat])cats[cat]={bA:0,pA:0,aA:0,vehicles:new Set()};
+      cats[cat].vehicles.add(v.number+'_'+b);
+      for(const d of v.daily){
+        if(!fdS.has(d.s))continue;
+        if(d.b!==null){cats[cat].bA+=d.b;total.bA+=d.b;}
+        if(d.p!==null){cats[cat].pA+=d.p;total.pA+=d.p;}
+        if(d.a!==null){cats[cat].aA+=d.a;total.aA+=d.a;}
+      }
+    }
+  }
+  // ソート：(未入力)は最下部、それ以外は実績金額の降順
+  const sorted=Object.entries(cats).sort((a,b)=>{
+    if(a[0]==='(未入力)')return 1;
+    if(b[0]==='(未入力)')return -1;
+    return b[1].aA-a[1].aA;
+  });
+  if(sorted.length===0){
+    return '<div class="panel"><div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);">'+title+'</div><div class="no-data" style="padding:24px;">該当データがありません</div></div>';
+  }
+  // バー描画用の最大値
+  const maxAmt=Math.max(1,...sorted.map(e=>Math.max(e[1].bA,e[1].pA,e[1].aA)));
+  let rows='';
+  for(const [cat,stat] of sorted){
+    const isUntyped=cat==='(未入力)';
+    const wB=Math.round(stat.bA/maxAmt*100);
+    const wP=Math.round(stat.pA/maxAmt*100);
+    const wA=Math.round(stat.aA/maxAmt*100);
+    const rAvP=pct(stat.aA,stat.pA);
+    const rAvB=pct(stat.aA,stat.bA);
+    rows+='<div class="cat-row"><div class="cat-name'+(isUntyped?' untyped':'')+'" title="'+cat+'">'+cat+'</div><div class="cat-bar-cnt">'+stat.vehicles.size+'台</div><div class="cat-bar-wrap"><div class="cat-bar-row"><div class="cat-bar-track"><div class="cat-bar-fill" style="width:'+wB+'%;background:var(--budget);opacity:.6"></div></div><div class="cat-bar-val" style="color:var(--budget);opacity:.8">'+(stat.bA>0?fmtK(stat.bA):'—')+'</div></div><div class="cat-bar-row"><div class="cat-bar-track"><div class="cat-bar-fill" style="width:'+wP+'%;background:var(--plan);opacity:.8"></div></div><div class="cat-bar-val" style="color:var(--plan)">'+(stat.pA>0?fmtK(stat.pA):'—')+'</div></div><div class="cat-bar-row"><div class="cat-bar-track"><div class="cat-bar-fill" style="width:'+wA+'%;background:var(--actual)"></div></div><div class="cat-bar-val" style="color:var(--actual)">'+(stat.aA>0?fmtK(stat.aA):'—')+'</div></div></div><div style="display:flex;flex-direction:column;gap:2px;width:42px;text-align:right;flex-shrink:0;"><div style="font-size:9px;font-family:monospace;color:var(--text-muted)">予算比</div>'+rateBadge(rAvB)+'<div style="font-size:9px;font-family:monospace;color:var(--text-muted);margin-top:2px">予定比</div>'+rateBadge(rAvP)+'</div></div>';
+  }
+  return '<div class="panel"><div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;padding-bottom:6px;border-bottom:1px solid var(--border);">'+title+'</div><div style="font-size:10px;color:var(--text-muted);margin-bottom:10px;">'+subtitle+'｜金額単位：千円｜上から実績の多い順</div><div style="font-size:11px;color:var(--text-dim);display:flex;gap:12px;margin-bottom:10px;"><span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--budget);opacity:.6;display:inline-block;"></span>予算</span><span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--plan);opacity:.8;display:inline-block;"></span>予定</span><span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--actual);display:inline-block;"></span>実績</span></div><div class="cat-bars">'+rows+'</div></div>';
+}
+
+// ── コンテンツ（集計表＋営業所別ゲージ／カレンダー） ─────────────────────────────────
+function renderContent(){
+  const area=document.getElementById('contentArea');if(!area)return;
+  area.innerHTML='';
+  area.appendChild(renderSummaryPanel());
+  if(currentBranch!=='ALL')area.appendChild(renderCalendarPanel());
+  else area.appendChild(renderAllBranchGauges());
+}
+function refreshPanels(){
+  updateKPIs();
+  const sp=document.getElementById('summaryPanel');if(sp)sp.replaceWith(renderSummaryPanel());
+  const cp=document.getElementById('calendarPanel');if(cp)cp.replaceWith(renderCalendarPanel());
+  const gp=document.getElementById('gaugePanel');if(gp)gp.replaceWith(renderAllBranchGauges());
+}
+function renderSummaryPanel(){
+  const panel=document.createElement('div');panel.className='panel';panel.id='summaryPanel';
+  const branches=currentBranch==='ALL'?visibleBranches():[currentBranch];
+  const rangeDays=filteredDates('ALL').length||30;
+  let html='<div class="panel-header"><div><div class="panel-title">営業所別・車種別 集計</div><div class="panel-subtitle">金額単位：千円（3桁カンマ）｜金額あり＝稼働日</div></div><div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--budget)"></div>予算</div><div class="legend-item"><div class="legend-dot" style="background:var(--plan)"></div>予定</div><div class="legend-item"><div class="legend-dot" style="background:var(--actual)"></div>実績</div></div></div><div style="overflow-x:auto"><table class="summary-table"><thead><tr><th>営業所 / 車種</th><th>保有台数</th><th class="col-budget">予算<br>稼働日</th><th class="col-plan">予定<br>稼働日</th><th class="col-actual">実績<br>稼働日</th><th class="col-budget">予算金額<br><span class="unit-note">千円</span></th><th class="col-plan">予定金額<br><span class="unit-note">千円</span></th><th class="col-actual">実績金額<br><span class="unit-note">千円</span></th><th>実績/<br>予定</th><th>実績/<br>予算</th><th class="col-plan">予定<br>1台1日<br><span class="unit-note">千円</span></th><th class="col-actual">実績<br>1台1日<br><span class="unit-note">千円</span></th><th>稼働率<br><span class="unit-note">実績/保有</span></th></tr></thead><tbody>';
+  let gBD=0,gPD=0,gAD=0,gBA=0,gPA=0,gAA=0,gOwned=0;
+  for(const b of branches){
+    const bData=DB[b];if(!bData)continue;
+    const fd=filteredDates(b);const fdS=new Set(fd.map(d=>d.serial));
+    const tg={};
+    for(const v of bData.vehicles){
+      if(!currentTypes.has('ALL')&&!currentTypes.has(v.type))continue;
+      if(!tg[v.type])tg[v.type]=[];
+      tg[v.type].push(v);
+    }
+    if(!Object.keys(tg).length)continue;
+    html+='<tr><td colspan="13" style="background:#e4eaf5;font-weight:700;color:#2a3a6a;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-left:3px solid var(--accent)">'+b+' <span style="font-size:10px;opacity:.7;margin-left:6px;">'+(bData.dept||'')+'</span></td></tr>';
+    let bBD=0,bPD=0,bAD=0,bBA=0,bPA=0,bAA=0,bOwned=0;
+    for(const [type,vs] of Object.entries(tg)){
+      let bD=0,pD=0,aD=0,bA=0,pA=0,aA=0;
+      for(const v of vs)for(const d of v.daily){
+        if(!fdS.has(d.s))continue;
+        if(d.b!==null){bD++;bA+=d.b;}
+        if(d.p!==null){pD++;pA+=d.p;}
+        if(d.a!==null){aD++;aA+=d.a;}
+      }
+      const owned=vs.length,maxD=owned*rangeDays;
+      html+='<tr><td style="padding-left:24px">'+type+'</td><td>'+owned+'台</td><td class="col-budget">'+(bD>0?bD+'日':'—')+'</td><td class="col-plan">'+(pD>0?pD+'日':'—')+'</td><td class="col-actual">'+(aD>0?aD+'日':'—')+'</td><td class="col-budget">'+(bA>0?fmtK(bA):'—')+'</td><td class="col-plan">'+(pA>0?fmtK(pA):'—')+'</td><td class="col-actual">'+(aA>0?fmtK(aA):'—')+'</td><td>'+rateBadge(pct(aA,pA))+'</td><td>'+rateBadge(pct(aA,bA))+'</td><td class="col-plan">'+(pD?fmtK(Math.round(pA/pD)):'—')+'</td><td class="col-actual">'+(aD?fmtK(Math.round(aA/aD)):'—')+'</td><td>'+rateBadge(pct(aD,maxD))+'</td></tr>';
+      bBD+=bD;bPD+=pD;bAD+=aD;bBA+=bA;bPA+=pA;bAA+=aA;bOwned+=owned;
+    }
+    const bMax=bOwned*rangeDays;
+    html+='<tr style="font-weight:600;background:rgba(26,92,191,.03)"><td style="padding-left:12px">小計</td><td>'+bOwned+'台</td><td class="col-budget">'+bBD+'日</td><td class="col-plan">'+bPD+'日</td><td class="col-actual">'+bAD+'日</td><td class="col-budget">'+(bBA>0?fmtK(bBA):'—')+'</td><td class="col-plan">'+(bPA>0?fmtK(bPA):'—')+'</td><td class="col-actual">'+(bAA>0?fmtK(bAA):'—')+'</td><td>'+rateBadge(pct(bAA,bPA))+'</td><td>'+rateBadge(pct(bAA,bBA))+'</td><td class="col-plan">'+(bPD?fmtK(Math.round(bPA/bPD)):'—')+'</td><td class="col-actual">'+(bAD?fmtK(Math.round(bAA/bAD)):'—')+'</td><td>'+rateBadge(pct(bAD,bMax))+'</td></tr>';
+    gBD+=bBD;gPD+=bPD;gAD+=bAD;gBA+=bBA;gPA+=bPA;gAA+=bAA;gOwned+=bOwned;
+  }
+  const gMax=gOwned*rangeDays;
+  html+='<tr style="font-weight:700;font-size:12px;border-top:2px solid var(--border);background:rgba(26,92,191,.05)"><td>合計</td><td>'+gOwned+'台</td><td class="col-budget">'+gBD+'日</td><td class="col-plan">'+gPD+'日</td><td class="col-actual">'+gAD+'日</td><td class="col-budget">'+(gBA>0?fmtK(gBA):'—')+'</td><td class="col-plan">'+(gPA>0?fmtK(gPA):'—')+'</td><td class="col-actual">'+(gAA>0?fmtK(gAA):'—')+'</td><td>'+rateBadge(pct(gAA,gPA))+'</td><td>'+rateBadge(pct(gAA,gBA))+'</td><td class="col-plan">'+(gPD?fmtK(Math.round(gPA/gPD)):'—')+'</td><td class="col-actual">'+(gAD?fmtK(Math.round(gAA/gAD)):'—')+'</td><td>'+rateBadge(pct(gAD,gMax))+'</td></tr>';
+  html+='</tbody></table></div>';
+  panel.innerHTML=html;return panel;
+}
+function renderAllBranchGauges(){
+  const div=document.createElement('div');div.id='gaugePanel';div.className='two-col';
+  for(const b of visibleBranches()){
+    const bData=DB[b];if(!bData)continue;
+    const panel=document.createElement('div');panel.className='panel';
+    const fd=filteredDates(b);const fdS=new Set(fd.map(d=>d.serial));
+    const vs=bData.vehicles.filter(v=>currentTypes.has('ALL')||currentTypes.has(v.type));
+    const owned=vs.length;
+    let pD=0,aD=0,pA=0,aA=0;
+    for(const v of vs)for(const d of v.daily){
+      if(!fdS.has(d.s))continue;
+      if(d.p!==null){pD++;pA+=d.p;}
+      if(d.a!==null){aD++;aA+=d.a;}
+    }
+    const maxD=owned*(fd.length||30);
+    const planOR=pct(pD,maxD),actOR=pct(aD,maxD),amtR=pct(aA,pA);
+    const pAvg=pD?fmtK(Math.round(pA/pD)):'—';
+    const aAvg=aD?fmtK(Math.round(aA/aD)):'—';
+    panel.innerHTML='<div class="panel-header"><div class="panel-title">'+b+' <span style="font-size:10px;color:var(--text-muted);margin-left:4px;">'+(bData.dept||'')+'</span></div><div class="panel-subtitle">'+owned+'台保有</div></div><div class="gauge-row"><div class="gauge-label">予定稼働率</div><div class="gauge-track"><div class="gauge-fill" style="width:'+Math.min(planOR||0,100)+'%;background:var(--plan)"></div></div><div class="gauge-val" style="color:var(--plan)">'+(planOR!==null?planOR+'%':'—')+'</div></div><div class="gauge-row"><div class="gauge-label">実績稼働率</div><div class="gauge-track"><div class="gauge-fill" style="width:'+Math.min(actOR||0,100)+'%;background:'+gaugeFillColor(actOR)+'"></div></div><div class="gauge-val" style="color:'+gaugeFillColor(actOR)+'">'+(actOR!==null?actOR+'%':'—')+'</div></div><div class="gauge-row"><div class="gauge-label">実績/予定</div><div class="gauge-track"><div class="gauge-fill" style="width:'+Math.min(amtR||0,100)+'%;background:'+gaugeFillColor(amtR)+'"></div></div><div class="gauge-val" style="color:'+gaugeFillColor(amtR)+'">'+(amtR!==null?amtR+'%':'—')+'</div></div><div style="display:flex;gap:16px;margin-top:10px;font-size:11px"><div><span style="color:var(--text-muted)">予定1台日平均 </span><span style="color:var(--plan);font-family:var(--mono)">'+pAvg+'</span><span style="color:var(--text-muted);font-size:10px"> 千円</span></div><div><span style="color:var(--text-muted)">実績1台日平均 </span><span style="color:var(--actual);font-family:var(--mono)">'+aAvg+'</span><span style="color:var(--text-muted);font-size:10px"> 千円</span></div></div>';
+    div.appendChild(panel);
+  }
+  return div;
+}
+function renderCalendarPanel(){
+  const panel=document.createElement('div');panel.className='panel';panel.id='calendarPanel';
+  if(currentBranch==='ALL')return panel;
+  const bData=DB[currentBranch];if(!bData)return panel;
+  const vs=bData.vehicles.filter(v=>currentTypes.has('ALL')||currentTypes.has(v.type));
+  const dates=filteredDates(currentBranch);
+  if(!dates.length){panel.innerHTML='<div class="no-data">集計期間内のデータがありません</div>';return panel;}
+  panel.innerHTML='<div class="panel-header"><div><div class="panel-title">日別稼働カレンダー</div><div class="panel-subtitle">金額単位：千円　上段：予算 / 中段：予定 / 下段：実績</div></div><div class="legend"><div class="legend-item"><div class="legend-dot" style="background:var(--budget)"></div>予算</div><div class="legend-item"><div class="legend-dot" style="background:var(--plan)"></div>予定</div><div class="legend-item"><div class="legend-dot" style="background:var(--actual)"></div>実績</div></div></div>';
+  const wrap=document.createElement('div');wrap.className='calendar-wrap';
+  const table=document.createElement('table');table.className='calendar-table';
+  let thead='<thead><tr><th class="col-vehicle">車両</th>';
+  for(const d of dates){const dow=serialToDate(d.serial).getDay();const cls=dow===0?'day-sun':dow===6?'day-sat':'';thead+='<th class="'+cls+'"><div>'+serialToDate(d.serial).getDate()+'日</div><div style="font-size:9px;opacity:.6">'+d.day+'</div></th>';}
+  thead+='</tr></thead>';
+  table.innerHTML=thead;
+  const tbody=document.createElement('tbody');
+  const tg={};for(const v of vs){if(!tg[v.type])tg[v.type]=[];tg[v.type].push(v);}
+  for(const[type,tvs]of Object.entries(tg)){
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td colspan="'+(dates.length+1)+'" style="background:#edf0f7;color:#3a4a6a;font-weight:700;font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:6px 10px">'+type+'（'+tvs.length+'台）</td>';
+    tbody.appendChild(tr);
+    for(const v of tvs){
+      const row=document.createElement('tr');
+      let html='<td class="col-vehicle"><span style="font-size:10px;color:var(--text-muted)">#</span>'+v.number+'</td>';
+      for(const d of dates){
+        const day=v.daily.find(x=>x.s===d.serial);
+        const dow=serialToDate(d.serial).getDay();
+        const dcls=dow===0?'day-sun':dow===6?'day-sat':'';
+        const b=day?day.b:null,p=day?day.p:null,a=day?day.a:null;
+        const any=b!==null||p!==null||a!==null;
+        html+='<td class="'+dcls+'"><div class="cal-cell'+(any?'':' cal-idle')+'">'+(b?'<div class="cal-amount cal-budget-amt">'+fmtKcompact(b)+'</div>':(p||a?'<div class="cal-amount" style="color:var(--text-muted);font-size:9px">—</div>':''))+(p?'<div class="cal-amount cal-plan-amt">'+fmtKcompact(p)+'</div>':'')+(a?'<div class="cal-amount cal-actual-amt">'+fmtKcompact(a)+'</div>':'')+'</div></td>';
+      }
+      row.innerHTML=html;tbody.appendChild(row);
+    }
+  }
+  table.appendChild(tbody);wrap.appendChild(table);panel.appendChild(wrap);
+  return panel;
+}
+
+// ── 初期化 ─────────────────────────────────
+function initUI(){
+  const dates=getDates('ALL');
+  if(!dates.length){
+    document.getElementById('contentArea').innerHTML='<div class="no-data">この月のデータがありません</div>';
+    return;
+  }
+  const allSerials=dates.map(d=>d.serial);
+  rangeStart=allSerials[0];
+  const todaySerial=Math.floor((Date.now()-(new Date(1899,11,30)).getTime())/86400000);
+  const yesterday=todaySerial-1;
+  const validYesterday=allSerials.filter(s=>s<=yesterday);
+  if(validYesterday.length>0){rangeEnd=validYesterday[validYesterday.length-1];}
+  else{const validToday=allSerials.filter(s=>s<=todaySerial);rangeEnd=validToday.length>0?validToday[validToday.length-1]:allSerials[0];}
+  const d=serialToDate(dates[0].serial);
+  setText('periodBadge',d.getFullYear()+'年'+(d.getMonth()+1)+'月');
+  const now=new Date();
+  setText('updatedBadge','更新日時：'+now.getFullYear()+'/'+(now.getMonth()+1)+'/'+now.getDate()+' '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0'));
+  buildDeptNav();
+  buildBranchNav();
+  buildDateBar();
+  buildTopTypeFilter();
+  updateKPIs();
+  renderContent();
+  renderChartsArea();
+}
+
+async function loadAllData(){
+  try{
+    const res=await fetch(ALL_DATA_URL+'?t='+Date.now());
+    if(res.ok){ALL_DATA=await res.json();}
+  }catch(e){
+    console.log('all_data.json load failed');
+    document.getElementById('contentArea').innerHTML='<div class="no-data" style="color:var(--danger)">データの読み込みに失敗しました。<br>しばらく待ってから再読み込みしてください。</div>';
+    return;
+  }
+  buildMonthNav();
+  const months=Object.keys(ALL_DATA).sort();
+  if(months.length>0){
+    const latestMonth=months[months.length-1];
+    selectMonth(latestMonth);
+  } else {
+    document.getElementById('contentArea').innerHTML='<div class="no-data">データがありません</div>';
+  }
+}
+
+loadAllData();
+</script>
+</body>
+</html>
